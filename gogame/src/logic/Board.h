@@ -34,13 +34,21 @@ namespace logic
 		std::vector<ChainID> _chainBoard;
 
 
-		Board(int sizeX, int sizeY) : _sizeX{ sizeX }, _sizeY{ sizeY }, _nextChainID{ 0 }
+		Board(int sizeX, int sizeY) :
+			_sizeX{ sizeX },
+			_sizeY{ sizeY },
+			_nextChainID{ 0 },
+			_stoneBoard(_sizeX * _sizeY, Stone::NONE),
+			_chainBoard(_sizeX * _sizeY, 0u)
 		{
-			_stoneBoard.reserve(_sizeX * _sizeY);
-			_stoneBoard = { Stone::NONE };
+		}
 
-			_chainBoard.reserve(_sizeX * _sizeY);
-			_chainBoard = { 0 };
+		void reset()
+		{
+			// _sizeX and _sizeY stays the same
+			_nextChainID = 0;
+			std::fill(std::begin(_stoneBoard), std::end(_stoneBoard), Stone::NONE);
+			std::fill(std::begin(_chainBoard), std::end(_chainBoard), 0u);
 		}
 
 		void incrementNextChainId()
@@ -51,6 +59,11 @@ namespace logic
 		bool isValidPosition(int x, int y) const
 		{
 			return (x >= 0 && x < _sizeX && y >= 0 && y < _sizeY);
+		}
+
+		bool noStoneAtPosition(int x, int y) const
+		{
+			return (stoneAt(x, y) == Stone::NONE);
 		}
 
 		Stone stoneAt(int x, int y) const
@@ -64,7 +77,6 @@ namespace logic
 			assert(isValidPosition(x, y));
 			return _stoneBoard[x + y*_sizeX];
 		}
-
 
 		ChainID chainAt(int x, int y) const
 		{
@@ -117,6 +129,11 @@ namespace logic
 				nextChainId = chainIdEastNeighbour;
 
 			return nextChainId;
+		}
+
+		void putStoneAtPosition(int x, int y, Stone stone)
+		{
+			stoneAt(x, y) = stone;
 		}
 	};
 }
