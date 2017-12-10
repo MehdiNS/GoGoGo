@@ -13,7 +13,7 @@ enum class Player
 
 enum class PickColor
 {
-   Red, Green, Grey
+   Red, Green, Grey, White, Black
 };
 
 constexpr NVGcolor color(int r, int g, int b, int alpha) 
@@ -38,6 +38,8 @@ constexpr auto pickColor(PickColor pickColor)
    case PickColor::Red: return color(255, 0, 0, 80);
    case PickColor::Green: return color(0, 255, 0, 80);
    case PickColor::Grey: return color(100, 100, 100, 100);
+   case PickColor::White: return color(255, 255, 255, 100);
+   case PickColor::Black: return color(0, 0, 0, 100);
    default: return color(0, 0, 0);
    }
 }

@@ -4,7 +4,7 @@
 
 namespace logic
 {
-	enum class neighbor : unsigned char
+	enum class neighbour : unsigned char
 	{
 		NORTH,
 		SOUTH,
@@ -22,7 +22,7 @@ namespace logic
 	using Stone = Color;
 	using Player = Color;
 
-	class BoardLogic
+	class Board
 	{
 	public:
 		int _sizeX;
@@ -34,7 +34,7 @@ namespace logic
 		std::vector<ChainID> _chainBoard;
 
 
-		BoardLogic(int sizeX, int sizeY) : _sizeX{ sizeX }, _sizeY{ sizeY }, _nextChainID{ 0 }
+		Board(int sizeX, int sizeY) : _sizeX{ sizeX }, _sizeY{ sizeY }, _nextChainID{ 0 }
 		{
 			_stoneBoard.reserve(_sizeX * _sizeY);
 			_stoneBoard = { Stone::NONE };

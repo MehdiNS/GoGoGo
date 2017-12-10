@@ -13,6 +13,7 @@
 #include <nanovg_gl.h>
 
 #include "render/GoModel.h"
+#include "logic\GameState.h"
 
 struct GameEvents
 {
@@ -100,7 +101,7 @@ void processPickEvent(std::pair<int, int> pick, render::GoModel& renderModel)
       return;
 
    renderModel.board.setPickColor(player == render::Player::White ?
-      render::PickColor::Green : render::PickColor::Red);
+      render::PickColor::White : render::PickColor::Black);
 }
 
 void changePlayer(render::GoModel& renderModel)
@@ -110,7 +111,7 @@ void changePlayer(render::GoModel& renderModel)
     renderModel.infos.setPlayer(player);
 }
 
-void processEvents(std::pair<int, int> pick, render::GoModel& renderModel)
+void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic::GameState& gameState)
 {
    if (events.pickChanged(pick))
       processPickEvent(pick, renderModel);
@@ -121,7 +122,7 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel)
    auto firedEvent = events;
    events.reset();
 
-   if (firedEvent.addStone && pick.first > 0 && pick.second > 0)
+   if (firedEvent.addStone && pick.first >= 0 && pick.second >= 0)
    {
        renderModel.stones.emplace_back(pick.first, pick.second, player);
        renderModel.infos.setScore(12, 19);
@@ -146,6 +147,7 @@ int main(void)
    
    render::DrawContext context(*vg, boardWidth, boardHeight);
    render::GoModel renderModel(context);
+   logic::GameState gameState{ boardWidth , boardHeight};
 
    // Loop until the user closes the window
    int winWidth, winHeight;
@@ -176,7 +178,7 @@ int main(void)
       glfwSwapBuffers(window);
 
       glfwPollEvents();
-      processEvents(pick, renderModel);
+      processEvents(pick, renderModel, gameState);
    }
 
    glfwTerminate();
