@@ -105,7 +105,7 @@ void processPickEvent(std::pair<int, int> pick, render::GoModel& renderModel, lo
 
 	if (gameState.canPutStoneAtPosition(pick.first, pick.second))
 		renderModel.board.setPickColor(player == render::Player::White ? render::PickColor::White : render::PickColor::Black);
-	else 	
+	else
 		renderModel.board.setPickColor(render::PickColor::Red);
 }
 
@@ -124,7 +124,7 @@ void retrieveStones(render::GoModel& renderModel, logic::GameState& gameState)
 	{
 		for (int y = 0; y < gameState._board._sizeY; ++y)
 		{
-			auto& stoneColor = gameState._board.stoneAt(x, y);
+			auto stoneColor = gameState._board.stoneAt(x, y);
 			if (stoneColor != logic::Stone::NONE)
 			{
 				renderModel.stones.emplace_back(x, y, (stoneColor == logic::Stone::BLACK) ? render::Player::Black : render::Player::White);
@@ -136,7 +136,11 @@ void retrieveStones(render::GoModel& renderModel, logic::GameState& gameState)
 void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic::GameState& gameState)
 {
 	if (events.pickChanged(pick))
+	{
+		std::cout << pick.first << "\t" << pick.second << std::endl;
 		processPickEvent(pick, renderModel, gameState);
+		renderModel.infos.setMessage(gameState.getMessage());
+	}
 
 	if (!events.fired())
 		return;
@@ -146,11 +150,9 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic
 
 	if (firedEvent.addStone && pick.first >= 0 && pick.second >= 0)
 	{
-		if (gameState.canPutStoneAtPosition(pick.first, pick.second))
+		if (gameState.putStoneAtPosition(pick.first, pick.second))
 		{
-			gameState.putStoneAtPosition(pick.first, pick.second);
 			renderModel.stones.emplace_back(pick.first, pick.second, player);
-			//renderModel.infos.setScore(12, 19);
 			changePlayer(renderModel, gameState);
 		}
 	}
@@ -158,7 +160,6 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic
 	{
 		gameState.pass();
 		changePlayer(renderModel, gameState);
-		//renderModel.infos.setScore(42, 0);
 	}
 	else if (firedEvent.newGame)
 	{
@@ -167,7 +168,7 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic
 		retrieveStones(renderModel, gameState);
 	}
 
-	renderModel.infos.setMessage("I don't have any idea of a cool message yet :(, but I'm sure you'll have some :))");
+	renderModel.infos.setMessage(gameState.getMessage());
 }
 
 int main(void)
