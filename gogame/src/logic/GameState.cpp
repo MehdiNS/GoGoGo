@@ -15,39 +15,9 @@ namespace logic
 		_scoreWhite{ 0 },
 		_scoreBlack{ 0 },
 		_nbConsecutivePass{ 0 },
-		_message{ "Click on position to add a stone, [Espace] to pass, [N] to start a new game" }
+		_message{ "Click on position to add a stone, [Space] to pass, [N] to start a new game" }
 	{
 		initTable();
-	}
-
-
-	unsigned long long int GameState::randomInt()
-	{
-		std::uniform_int_distribution<unsigned long long int> dist(0, UINT64_MAX);
-		return dist(prng);
-	}
-
-	// Initializes the table
-	void GameState::initTable()
-	{
-		for (int i = 0; i < 81; i++)
-			for (int k = 0; k < 2; k++)
-				ZobristTable[i][k] = randomInt();
-	}
-
-	// Computes the hash value of a given board
-	unsigned long long int GameState::computeHash(const std::vector<Stone>& stoneBoard)
-	{
-		unsigned long long int h = 0;
-		for (int i = 0; i < 81; i++)
-		{
-			if (stoneBoard[i] != Stone::NONE)
-			{
-				int piece = static_cast<int>(stoneBoard[i]);
-				h ^= ZobristTable[i][piece];
-			}
-		}
-		return h;
 	}
 
 	void GameState::reset()
@@ -83,6 +53,18 @@ namespace logic
 		_currentPlayer = (_currentPlayer == Player::WHITE) ? Player::BLACK : Player::WHITE;
 	}
 
+	void GameState::computeFinalScore()
+	{
+		for (auto& stone : _board.getStoneBoard())
+		{
+			if (stone == Stone::BLACK)
+				_scoreBlack++;
+			else if
+				(stone == Stone::WHITE)
+				_scoreWhite++;
+		}
+	}
+
 	Player GameState::getCurrentPlayer() const
 	{
 		return _currentPlayer;
@@ -93,18 +75,29 @@ namespace logic
 		_nbConsecutivePass++;
 
 		if (!_isGameOver && _nbConsecutivePass == 2)
+		{
+			computeFinalScore();
 			_isGameOver = true;
+		}
 
 		if (!_isGameOver)
 			changePlayer();
 	}
 
-	bool GameState::canPutStoneAtPosition(Position pos)
+	bool GameState::precomputeStonePlacement(Position pos)
 	{
+		// We work on a copy of the board, to leave the original the way it is before making sure we can add a stone at position
+		_simulatedBoard = _board;
+
 		// If the game is already over, early exit
 		if (_isGameOver)
 		{
-			_message = "Game over";
+			if (_scoreBlack > _scoreWhite)
+				_message = "Game over : Player Black won ! [N] for a new game";
+			else if (_scoreBlack < _scoreWhite)
+				_message = "Game over : Player White won ! [N] for a new game";
+			else
+				_message = "Game over : Draw ! [N] for a new game";
 			return false;
 		}
 
@@ -141,7 +134,64 @@ namespace logic
 		// and 1 still a liberty) from an adjacent stone 
 		if (nbTotalLiberties == 0 && (!couldCaptureStone(pos) && !canBeLinkedToChainWithLiberties(pos)))
 		{
-			_message = "No liberty at that position";
+			_message = "Can't add the stone : No liberty at that position";
+			return false;
+		}
+
+		// Reaching this point we know the only problem that can appear is the superko.
+		// We put the stone at the position on the fake board
+		_simulatedBoard.setStoneAt(pos, playerToStone(_currentPlayer));
+
+		// The player didn't pass
+		_nbConsecutivePass = 0;
+
+		// We compute the chainID of the new stone. If it's a new chain, we pick _NextChainId
+		// If the new stone is connected to other stones of the same color, we pick the one of lowest value for conveniance
+		chain = getStoneChainID(pos);
+
+		// We compute the number of direct liberties that are not already liberties for adjacent chains.
+		nbDirectLiberties = getDirectLiberties(pos, chain);
+
+		// If we create a new chain, initialize it and increment the nextChainId to prepare the next ones
+		if (chain == _simulatedBoard.getNextChainId())
+		{
+			_simulatedBoard.setNbLibertiesOfChain(chain, 0);
+			_simulatedBoard.incrementNextChainId();
+		}
+
+		// We update the stone chain.
+		_simulatedBoard.setChainAt(pos, chain);
+
+		// We check if some stones could be connected, and we fusion them if they are
+		Position northPos = getNorthPosition(pos);
+		if (_simulatedBoard.isPositionInsideBoard(northPos))
+			_simulatedBoard.fusionChainsFromPositions(pos, northPos);
+
+		Position southPos = getSouthPosition(pos);
+		if (_simulatedBoard.isPositionInsideBoard(southPos))
+			_simulatedBoard.fusionChainsFromPositions(pos, southPos);
+
+		Position westPos = getWestPosition(pos);
+		if (_simulatedBoard.isPositionInsideBoard(westPos))
+			_simulatedBoard.fusionChainsFromPositions(pos, westPos);
+
+		Position eastPos = getEastPosition(pos);
+		if (_simulatedBoard.isPositionInsideBoard(eastPos))
+			_simulatedBoard.fusionChainsFromPositions(pos, eastPos);
+
+		// We update the number of liberty for the current chain
+		_simulatedBoard.setNbLibertiesOfChain(chain, _simulatedBoard.getNbLibertiesOfChain(chain) + nbDirectLiberties);
+
+		// We tell other adjacent chains to decrease their liberties
+		decreaseLibertiesOfAdjacentChains(pos);
+
+		auto hash = computeHash(_simulatedBoard.getStoneBoard());
+		auto search = _oldBoardsHash.find(hash);
+
+		if (search != _oldBoardsHash.end())
+		{
+			// Board found. We did all of that for nothing. There must be a simpler test
+			_message = "Move impossible (Positional Superko rule)";
 			return false;
 		}
 
@@ -179,7 +229,6 @@ namespace logic
 		}
 		return result;
 	}
-
 
 	bool GameState::couldCaptureStone(Position pos)
 	{
@@ -260,74 +309,15 @@ namespace logic
 
 	bool GameState::putStoneAtPosition(Position pos)
 	{
+		_simulatedBoard = _board;
+
 		// Check if we can safely add the stone at the position
-		if (canPutStoneAtPosition(pos))
+		if (precomputeStonePlacement(pos))
 		{
-			_simulatedBoard = _board;
-
-			// Put the stone at the position
-			_simulatedBoard.setStoneAt(pos, playerToStone(_currentPlayer));
-
-			// The player didn't pass
-			_nbConsecutivePass = 0;
-
-			// We compute the chainID of the new stone. If it's a new chain, we pick _NextChainId
-			// If the new stone is connected to other stones of the same color, we pick 
-			ChainID chain = getStoneChainID(pos);
-
-			// We compute the number of direct liberties that are not already liberties for adjacent chains.
-			int nbDirectLiberties = getDirectLiberties(pos, chain);
-
-			// If we create a new chain, intialize it and increment the nextChainId to prepare the next ones
-			if (chain == _simulatedBoard.getNextChainId())
-			{
-				_simulatedBoard.setNbLibertiesOfChain(chain, 0);
-				_simulatedBoard.incrementNextChainId();
-			}
-
-			// We update the stone chain.
-			_simulatedBoard.setChainAt(pos, chain);
-
-			// We check if some stones could be connected, and we fusion them if they are
-			Position northPos = getNorthPosition(pos);
-			if (_simulatedBoard.isPositionInsideBoard(northPos))
-				_simulatedBoard.fusionChainsFromPositions(pos, northPos);
-
-			Position southPos = getSouthPosition(pos);
-			if (_simulatedBoard.isPositionInsideBoard(southPos))
-				_simulatedBoard.fusionChainsFromPositions(pos, southPos);
-
-			Position westPos = getWestPosition(pos);
-			if (_simulatedBoard.isPositionInsideBoard(westPos))
-				_simulatedBoard.fusionChainsFromPositions(pos, westPos);
-
-			Position eastPos = getEastPosition(pos);
-			if (_simulatedBoard.isPositionInsideBoard(eastPos))
-				_simulatedBoard.fusionChainsFromPositions(pos, eastPos);
-
-			// We update the number of liberty for the current chain
-			_simulatedBoard.setNbLibertiesOfChain(chain, _simulatedBoard.getNbLibertiesOfChain(chain) + nbDirectLiberties);
-
-			// We tell other adjacent chains to decrease their liberties
-			decreaseLibertiesOfAdjacentChains(pos);
-
+			// Board not found, this one is unique. We can add this board hash to the set, and place this stone
 			auto hash = computeHash(_simulatedBoard.getStoneBoard());
-			std::cout << "New nb liberty of chain : " << hash << std::endl;
-			auto search = _oldBoardsHash.find(hash);
-
-			if (search != _oldBoardsHash.end())
-			{
-				// Found. We did all of that for nothing
-				_message = "Move impossible because of Positional Superko rule";
-				return false;
-			}
-			else
-			{
-				//Not found. We can add this board hash to the memory set, and play this stone
-				_oldBoardsHash.insert(hash);
-				_board = _simulatedBoard;
-			}
-
+			_oldBoardsHash.insert(hash);
+			_board = _simulatedBoard;
 
 			// The play is done. It's the other player turn
 			changePlayer();
@@ -358,8 +348,8 @@ namespace logic
 	void GameState::decreaseLibertiesOfAdjacentChains(Position pos)
 	{
 		// For each adjacent position, we check if the chain is the same as our own. If it is, we decrement 
-		// our chain number of liberties. If the chain of the adjacent position is different, we need to decrement that one
-		// The tricky part is it's possible that adjacent stones share the same chain
+		// our chain number of liberties. If the chain of the adjacent position is different, we need to decrement that one.
+		// The tricky part is it's possible that adjacent stones and the central stone share the same chain
 
 		bool ownLibertyMustDecreased = false;
 		ChainID centralChain = _simulatedBoard.getChainAt(pos);
@@ -367,46 +357,30 @@ namespace logic
 		Position northPos = getNorthPosition(pos);
 		ChainID northChain = _simulatedBoard.getChainAt(northPos);
 		if (northChain == centralChain)
-		{
 			ownLibertyMustDecreased = true;
-		}
 		else if (northChain != 0)
-		{
 			decreaseLiberty(northChain);
-		}
 
 		Position southPos = getSouthPosition(pos);
 		ChainID southChain = _simulatedBoard.getChainAt(southPos);
 		if (southChain == centralChain)
-		{
 			ownLibertyMustDecreased = true;
-		}
 		else if (southChain != 0 && southChain != northChain)
-		{
 			decreaseLiberty(southChain);
-		}
 
 		Position westPos = getWestPosition(pos);
 		ChainID westChain = _simulatedBoard.getChainAt(westPos);
 		if (westChain == centralChain)
-		{
 			ownLibertyMustDecreased = true;
-		}
 		else if (westChain != 0 && westChain != northChain && westChain != southChain)
-		{
 			decreaseLiberty(westChain);
-		}
 
 		Position eastPos = getEastPosition(pos);
 		ChainID eastChain = _simulatedBoard.getChainAt(eastPos);
 		if (eastChain == centralChain)
-		{
 			ownLibertyMustDecreased = true;
-		}
 		else if (eastChain != 0 && eastChain != northChain && eastChain != southChain && eastChain != westChain)
-		{
 			decreaseLiberty(eastChain);
-		}
 
 		if (ownLibertyMustDecreased)
 			decreaseLiberty(centralChain);
@@ -415,6 +389,16 @@ namespace logic
 	const std::string& GameState::getMessage() const
 	{
 		return _message;
+	}
+
+	unsigned int GameState::getScoreBlack() const
+	{
+		return _scoreBlack;
+	}
+
+	unsigned int GameState::getScoreWhite() const
+	{
+		return _scoreWhite;
 	}
 
 	int GameState::getDirectLiberties(Position pos, ChainID chain)
@@ -466,4 +450,38 @@ namespace logic
 		if (eastChain != 0 && eastChain != northChain && eastChain != southChain && eastChain != westChain)
 			_simulatedBoard.incrementNbLibertiesOfChain(eastChain);
 	}
+
+	unsigned long long int GameState::randomInt()
+	{
+		std::uniform_int_distribution<unsigned long long int> dist(0, UINT64_MAX);
+		return dist(prng);
+	}
+
+	// Initializes the table
+	void GameState::initTable()
+	{
+		const int sizeBoard = _board.getDimensionX() * _board.getDimensionY();
+		for (int i = 0; i < sizeBoard; i++)
+			for (int k = 0; k < 2; k++)
+				ZobristTable[i][k] = randomInt();
+	}
+
+	// Computes the hash value of a given board
+	// Acconrding to Google, we don't actually need to recompute the hash for the whole board, but only with XOR of specific 
+	// positions that changed. Might give it a try if I have some time 
+	unsigned long long int GameState::computeHash(const std::vector<Stone>& stoneBoard)
+	{
+		const int sizeBoard = _board.getDimensionX() * _board.getDimensionY();
+		unsigned long long int h = 0;
+		for (int i = 0; i < sizeBoard; i++)
+		{
+			if (stoneBoard[i] != Stone::NONE)
+			{
+				int piece = static_cast<int>(stoneBoard[i]);
+				h ^= ZobristTable[i][piece];
+			}
+		}
+		return h;
+	}
+
 }

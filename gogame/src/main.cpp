@@ -103,7 +103,7 @@ void processPickEvent(std::pair<int, int> pick, render::GoModel& renderModel, lo
 	if (pick.first < 0 || pick.second < 0)
 		return;
 
-	if (gameState.canPutStoneAtPosition({ pick.first, pick.second }))
+	if (gameState.precomputeStonePlacement({ pick.first, pick.second }))
 		renderModel.board.setPickColor(player == render::Player::White ? render::PickColor::White : render::PickColor::Black);
 	else
 		renderModel.board.setPickColor(render::PickColor::Red);
@@ -171,6 +171,7 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic
 		retrieveStones(renderModel, gameState);
 	}
 
+	renderModel.infos.setScore(gameState.getScoreBlack(), gameState.getScoreWhite());
 	renderModel.infos.setMessage(gameState.getMessage());
 }
 
