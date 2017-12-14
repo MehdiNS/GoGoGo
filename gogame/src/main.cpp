@@ -103,7 +103,7 @@ void processPickEvent(std::pair<int, int> pick, render::GoModel& renderModel, lo
 	if (pick.first < 0 || pick.second < 0)
 		return;
 
-	if (gameState.canPutStoneAtPosition(pick.first, pick.second))
+	if (gameState.canPutStoneAtPosition({ pick.first, pick.second }))
 		renderModel.board.setPickColor(player == render::Player::White ? render::PickColor::White : render::PickColor::Black);
 	else
 		renderModel.board.setPickColor(render::PickColor::Red);
@@ -120,11 +120,14 @@ void retrieveStones(render::GoModel& renderModel, logic::GameState& gameState)
 {
 	renderModel.stones.clear();
 
-	for (int x = 0; x < gameState._board._sizeX; ++x)
+	auto dimX = gameState.getBoardDimensionX();
+	auto dimY = gameState.getBoardDimensionY();
+	const auto& board = gameState.getBoard();
+	for (int y = 0; y < dimY; ++y)
 	{
-		for (int y = 0; y < gameState._board._sizeY; ++y)
+		for (int x = 0; x < dimX; ++x)
 		{
-			auto stoneColor = gameState._board.stoneAt(x, y);
+			auto stoneColor = board.getStoneAt({ x, y });
 			if (stoneColor != logic::Stone::NONE)
 			{
 				renderModel.stones.emplace_back(x, y, (stoneColor == logic::Stone::BLACK) ? render::Player::Black : render::Player::White);
@@ -137,7 +140,6 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic
 {
 	if (events.pickChanged(pick))
 	{
-		std::cout << pick.first << "\t" << pick.second << std::endl;
 		processPickEvent(pick, renderModel, gameState);
 		renderModel.infos.setMessage(gameState.getMessage());
 	}
@@ -150,10 +152,11 @@ void processEvents(std::pair<int, int> pick, render::GoModel& renderModel, logic
 
 	if (firedEvent.addStone && pick.first >= 0 && pick.second >= 0)
 	{
-		if (gameState.putStoneAtPosition(pick.first, pick.second))
+		if (gameState.putStoneAtPosition({ pick.first, pick.second }))
 		{
 			renderModel.stones.emplace_back(pick.first, pick.second, player);
 			changePlayer(renderModel, gameState);
+			retrieveStones(renderModel, gameState);
 		}
 	}
 	else if (firedEvent.pass)
