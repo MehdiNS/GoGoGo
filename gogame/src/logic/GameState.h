@@ -1,17 +1,26 @@
 #pragma once
 #include "Board.h"
+#include <random>
+#include <set>
 
 namespace logic
 {
 	class  GameState
 	{
-		bool _isGameOver;
 		Board _board;
+		Board _simulatedBoard;
+		std::set<unsigned long long int>  _oldBoardsHash;
 		Player _currentPlayer;
 		unsigned int _scoreWhite;
 		unsigned int _scoreBlack;
 		unsigned int _nbConsecutivePass;
 		std::string _message;
+		bool _isGameOver;
+
+		// Positional Superko
+		unsigned long long int ZobristTable[81][2];
+		std::random_device rd;
+		std::mt19937 prng{ rd() };
 
 	public:
 		GameState(int xDim, int yDim);
@@ -36,5 +45,9 @@ namespace logic
 		void decreaseLiberty(ChainID chain);
 		void decreaseLibertiesOfAdjacentChains(Position pos);
 		void increaseLibertiesOfAdjacentChains(Position pos);
+
+		unsigned long long int randomInt();
+		void initTable();
+		unsigned long long int computeHash(const std::vector<Stone>& stoneBoard);
 	};
 }

@@ -35,6 +35,11 @@ namespace logic
 		_nextChainID++;
 	}
 
+	const std::vector<Stone>& Board::getStoneBoard() const
+	{
+		return _stoneBoard;
+	}
+
 	ChainID Board::getNextChainId() const
 	{
 		return _nextChainID;

@@ -37,6 +37,7 @@ namespace logic
 		bool noStoneAtPosition(Position pos) const;
 
 		// A lot of get/set functions. 
+		const std::vector<Stone>& getStoneBoard() const;
 		ChainID getNextChainId() const;
 		int getDimensionX() const;
 		int getDimensionY() const;
