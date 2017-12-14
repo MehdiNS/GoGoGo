@@ -101,8 +101,9 @@ namespace logic
 			nbTotalLiberties += _board.getNbLibertiesOfChain(chain) - 1;
 
 		// If there's zero liberty at the position, let's check if placing a stone there could capture other stone(s)
-		// and creating at least one new liberty
-		if (nbTotalLiberties == 0 && !couldCaptureStone(pos))
+		// and creating at least one new liberty, or if he can grab a liberty (at least 2 actually, 1 to connect with it, 
+		// and 1 still a liberty) from an adjacent stone 
+		if (nbTotalLiberties == 0 && (!couldCaptureStone(pos) && !canBeLinkedToChainWithLiberties(pos)))
 		{
 			_message = "No liberty at that position";
 			return false;
@@ -112,6 +113,38 @@ namespace logic
 		_message = "Click on position to add a stone, [Space] to pass, [N] to start a new game";
 		return true;
 	}
+
+	bool GameState::canBeLinkedToChainWithLiberties(Position pos)
+	{
+		// Here we check whether there's a chain with enough (>=2) liberties around a position to be able to place that stone
+		// at that position
+
+		bool result = false;
+		Stone playerStone = playerToStone(_currentPlayer);
+
+		{
+			Position northPos = getNorthPosition(pos);
+			if (_board.isPositionInsideBoard(northPos) && _board.getStoneAt(northPos) == playerStone && _board.getNbLibertiesOfChainAtPosition(northPos) >=2 )
+				result = true;
+		}
+		{
+			Position southPos = getSouthPosition(pos);
+			if (_board.isPositionInsideBoard(southPos) && _board.getStoneAt(southPos) == playerStone && _board.getNbLibertiesOfChainAtPosition(southPos) >= 2)
+				result = true;
+		}
+		{
+			Position westPos = getWestPosition(pos);
+			if (_board.isPositionInsideBoard(westPos) && _board.getStoneAt(westPos) == playerStone && _board.getNbLibertiesOfChainAtPosition(westPos) >= 2)
+				result = true;
+		}
+		{
+			Position eastPos = getEastPosition(pos);
+			if (_board.isPositionInsideBoard(eastPos) && _board.getStoneAt(eastPos) == playerStone && _board.getNbLibertiesOfChainAtPosition(eastPos) >= 2)
+				result = true;
+		}
+		return result;
+	}
+
 
 	bool GameState::couldCaptureStone(Position pos)
 	{

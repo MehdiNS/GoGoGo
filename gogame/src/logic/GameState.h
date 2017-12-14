@@ -29,6 +29,7 @@ namespace logic
 		bool canPutStoneAtPosition(Position pos);
 		bool putStoneAtPosition(Position pos);
 		bool couldCaptureStone(Position pos);
+		bool canBeLinkedToChainWithLiberties(Position pos);
 		ChainID getStoneChainID(Position pos);
 		int getDirectLiberties(Position pos, ChainID chain);
 
