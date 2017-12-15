@@ -80,8 +80,8 @@ namespace logic
 	}
 
 	// We use area scoring to determine the score. I ignored the komi.
-	// This function is terrible in terms of complexity for what it does, but given the score is computed only at the 
-	// end of the game, and also because I don't see a 
+	// This function is terrible in terms of complexity for what it does, but the score is computed only at the 
+	// end of the game, and also I don't see a much better way to do it
 	void GameState::computeFinalScore()
 	{
 		const int sizeBoard = _board.getDimensionX() * _board.getDimensionY();
