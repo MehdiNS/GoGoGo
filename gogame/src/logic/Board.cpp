@@ -62,6 +62,11 @@ namespace logic
 		return (getStoneAt(pos) == Stone::NONE);
 	}
 
+	bool Board::noStoneAtPosition(int i) const
+	{
+		return (getStoneAt(i) == Stone::NONE);
+	}
+
 	int Board::getDimensionX() const
 	{
 		return _sizeX;

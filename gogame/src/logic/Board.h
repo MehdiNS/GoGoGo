@@ -35,6 +35,7 @@ namespace logic
 		bool isPositionInsideBoard(Position pos) const;
 		bool isPositionInsideBoard(int i) const;
 		bool noStoneAtPosition(Position pos) const;
+		bool noStoneAtPosition(int i) const;
 
 		// A lot of get/set functions. 
 		const std::vector<Stone>& getStoneBoard() const;

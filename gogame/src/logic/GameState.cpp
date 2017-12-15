@@ -53,15 +53,76 @@ namespace logic
 		_currentPlayer = (_currentPlayer == Player::WHITE) ? Player::BLACK : Player::WHITE;
 	}
 
+	void floodfill(Position pos, const std::vector<Stone>& stoneBoard, std::vector<int>& visit, bool& seenWhite, bool& seenBlack, int& nbMarked, int value)
+	{
+		auto indexPos = (pos.x + pos.y * 9);
+		bool isInBoard = pos.x >= 0 && pos.y >= 0 && pos.x < 9 && pos.y < 9;
+
+		if (isInBoard)
+		{
+			// Position is empty and non marked
+			if (stoneBoard[indexPos] == Stone::NONE && visit[indexPos] == 0)
+			{
+				// We mark the position we visited, and increase the counter of empty position in the region
+				visit[indexPos] = value;
+				nbMarked++;
+				// Let's see if there are positions not already visited around the neighbours
+				floodfill(getNorthPosition(pos), stoneBoard, visit, seenWhite, seenBlack, nbMarked, value);
+				floodfill(getSouthPosition(pos), stoneBoard, visit, seenWhite, seenBlack, nbMarked, value);
+				floodfill(getWestPosition(pos), stoneBoard, visit, seenWhite, seenBlack, nbMarked, value);
+				floodfill(getEastPosition(pos), stoneBoard, visit, seenWhite, seenBlack, nbMarked, value);
+			}
+			else if (stoneBoard[indexPos] == Stone::BLACK) 
+				seenBlack = true;
+			else if (stoneBoard[indexPos] == Stone::WHITE) 
+				seenWhite = true;
+		}
+	}
+
+	// We use area scoring to determine the score. I ignored the komi.
+	// This function is terrible in terms of complexity for what it does, but given the score is computed only at the 
+	// end of the game, and also because I don't see a 
 	void GameState::computeFinalScore()
 	{
+		const int sizeBoard = _board.getDimensionX() * _board.getDimensionY();
+
+		// Compute the number of stones left on the board
 		for (auto& stone : _board.getStoneBoard())
 		{
 			if (stone == Stone::BLACK)
 				_scoreBlack++;
-			else if
-				(stone == Stone::WHITE)
+			else if (stone == Stone::WHITE)
 				_scoreWhite++;
+		}
+
+		// Prepare the floodfill with some way to remember the positions already visited, those we don't want to visit
+		std::vector<int> positionsToVisit(sizeBoard, -1); // -1 -> Stone, 0 -> Non-visited position,  1+ -> Visited positioon
+		for (int i = 0; i < sizeBoard; ++i)
+		{
+			if (_board.noStoneAtPosition(i))
+				positionsToVisit[i] = 0;
+		}
+
+		// Iterative floodfill. We iterate over the board, and each time we encounter an empty position not already visited
+		// we floodfill the area, and see the color of the stones we're reaching
+		for (int i = 0; i < sizeBoard; ++i)
+		{
+			if (_board.noStoneAtPosition(i) && positionsToVisit[i] == 0)
+			{
+				bool seenWhite = false;
+				bool seenBlack = false;
+				int nbMarked = 0;
+				int x = i % 9;
+				int y = i / 9;
+				floodfill({x, y}, _board.getStoneBoard(), positionsToVisit, seenWhite, seenBlack, nbMarked, i+1);
+
+				// If during the floodfill we only encountered stone of one color, we had the number of the group to 
+				// their respective counter
+				if (seenWhite == true && seenBlack == false)
+					_scoreWhite += nbMarked;
+				if (seenBlack == true && seenWhite == false)
+					_scoreBlack += nbMarked;
+			}
 		}
 	}
 
@@ -141,9 +202,6 @@ namespace logic
 		// Reaching this point we know the only problem that can appear is the superko.
 		// We put the stone at the position on the fake board
 		_simulatedBoard.setStoneAt(pos, playerToStone(_currentPlayer));
-
-		// The player didn't pass
-		_nbConsecutivePass = 0;
 
 		// We compute the chainID of the new stone. If it's a new chain, we pick _NextChainId
 		// If the new stone is connected to other stones of the same color, we pick the one of lowest value for conveniance
@@ -314,6 +372,9 @@ namespace logic
 		// Check if we can safely add the stone at the position
 		if (precomputeStonePlacement(pos))
 		{
+			// The player didn't pass
+			_nbConsecutivePass = 0;
+
 			// Board not found, this one is unique. We can add this board hash to the set, and place this stone
 			auto hash = computeHash(_simulatedBoard.getStoneBoard());
 			_oldBoardsHash.insert(hash);
